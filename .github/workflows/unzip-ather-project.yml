@@ -1,0 +1,49 @@
+name: Unzip Ather project to deploy branch
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - "ather_project.zip"
+      - ".github/workflows/unzip-ather-project.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unzip-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Prepare extracted project
+        run: |
+          rm -rf extracted
+          mkdir extracted
+          unzip -q ather_project.zip -d extracted
+
+          # Safety: remove files that should never be deployed or committed
+          rm -f extracted/.env extracted/.env.local
+          rm -rf extracted/node_modules extracted/dist extracted/data extracted/.vercel
+
+          # Add a marker so the deploy branch is clear
+          cat > extracted/README_DEPLOY_BRANCH.md <<'EOF'
+          # Deploy Branch
+
+          This branch is auto-generated from `ather_project.zip` on the `main` branch.
+
+          Do not edit this branch manually.
+          Update `ather_project.zip` on `main`, then run the workflow again.
+          EOF
+
+      - name: Publish extracted project to vercel-deploy branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: vercel-deploy
+          publish_dir: ./extracted
+          force_orphan: true
+          commit_message: "Deploy extracted Ather project from ZIP"
